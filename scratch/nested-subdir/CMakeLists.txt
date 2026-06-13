@@ -2,6 +2,7 @@
 add_library(
   scratch-nested-subdir-lib
   lib/scratch-nested-subdir-library-source.cc
+        ../gpsr.cc
 )
 
 # Link the custom library to the scratch executable
