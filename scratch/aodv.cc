@@ -17,6 +17,11 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("VanetAodvCsv");
 
+void FirstTxCallback(Ptr<const Packet> p)
+{
+    
+}
+
 int main(int argc, char *argv[])
 {
     uint32_t numNodes = 20;
@@ -95,11 +100,22 @@ int main(int argc, char *argv[])
     auto stats = monitor->GetFlowStats();
 
     std::ofstream csv("aodv_metrics.csv");
-    csv << "FlowId,Source,Destination,TxPackets,RxPackets,PDR,AvgDelaySeconds,ThroughputMbps\n";
+    csv << "FlowId,Source,SrcPort,Destination,DstPort,"
+    << "TxPackets,RxPackets,LostPackets,PDR(%),AvgDelay(ms),"
+    << "Jitter(ms),Throughput(Mbps)\n";
+
+    double totalTxpkt= 0.0;
+
 
     for (const auto &flow : stats)
     {
         auto tuple = classifier->FindFlow(flow.first);
+
+        if (tuple.destinationPort==654||tuple.sourcePort==654)
+        {
+            continue; // skips aodv control Flows
+        }
+        totalTxpkt += flow.second.txPackets;
 
         double pdr = 0.0;
         if (flow.second.txPackets > 0)
@@ -114,20 +130,19 @@ int main(int argc, char *argv[])
             avgDelay = flow.second.delaySum.GetSeconds() /
                        flow.second.rxPackets;
         }
-        double throughput =
-            (flow.second.rxBytes * 8.0) /
-            simTime /
-            1000000.0;
-        csv << flow.first << ","
-            << tuple.sourceAddress << ","
-            << tuple.destinationAddress << ","
-            << flow.second.txPackets << ","
-            << flow.second.rxPackets << ","
-            << std::fixed << std::setprecision(4)
-            << pdr << ","
-            << avgDelay << ","
-            << throughput
-            << "\n";
+        double duration = flow.second.timeLastRxPacket.GetSeconds() - flow.second.timeFirstTxPacket.GetSeconds();
+        double throughput = (duration>0)?(flow.second.rxBytes*8.0)/duration/1000000:0.0;
+        csv << flow.first                   << ","
+       << tuple.sourceAddress              << ","
+       << tuple.sourcePort                 << ","
+       << tuple.destinationAddress         << ","
+       << tuple.destinationPort            << ","
+       << flow.second.txPackets        << ","
+       << flow.second.rxPackets        << ","
+       << flow.second.lostPackets      << ","
+       << std::fixed << std::setprecision(4)
+       << pdr                          << ","
+       << throughput                   << "\n";
     }
 
     csv.close();
