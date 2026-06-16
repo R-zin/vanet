@@ -36,7 +36,7 @@ void FirstRxCallback(Ptr<const Packet> p,const Address &addr)
 
 uint32_t routingTxPackets = 0;
 
-void RoutingTxTrace(const Ipv4Header &header,Ptr<const Packet>p,uint32_t interface)
+void RoutingTxTrace(const Ipv4Header &header,Ptr<const Packet> p,uint32_t interface)
 {
     routingTxPackets++;
 }
@@ -88,47 +88,55 @@ int main(int argc, char *argv[])
     for (uint32_t i = 0; i < nodes.GetN(); i++)
     {
         nodes.Get(i)->GetObject<Ipv4>()->TraceConnectWithoutContext("SendOutgoing",MakeCallback(&RoutingTxTrace));
-
     }
+
+    struct FlowPair {uint32_t src; uint32_t dst;};
+    std::vector<FlowPair> pairs;
+    for (uint32_t i = 0; i < numNodes; i++)
+    {
+        for (uint32_t j = 0; j < numNodes; j++)
+        {
+            if (i == j)
+            {
+                continue;
+            }
+            pairs.push_back({i,j});
+        }
+    }
+    uint32_t totalflow = pairs.size();
 
     uint16_t basePort = 9999;
     ApplicationContainer sinkApps, clientApps;
 
-    Ptr<UniformRandomVariable> rng = CreateObject<UniformRandomVariable>();
-    std::vector<uint32_t> srcs, dsts;
+    double startSpread = std::min(10.0,simTime/4.0);
+    double startStep = (totalflow > 1) ? startSpread/(double)(totalflow-1) : 0.0;
 
-    while (srcs.size() < numFlows)
+    for (uint32_t i = 0; i < totalflow; i++)
     {
-        uint32_t s = rng->GetInteger(0, numNodes - 1);
-        uint32_t d = rng->GetInteger(0, numNodes - 1);
-        if (s == d) continue;
-        bool dup = false;
-        for (auto x : srcs) if (x == s) { dup = true; break; }
-        if (dup) continue;
-        srcs.push_back(s);
-        dsts.push_back(d);
-    }
+        uint32_t src = pairs[i].src;
+        uint32_t dst = pairs[i].dst;
+        uint16_t port = basePort + i;
 
-    for (uint32_t i = 0; i < numFlows; i++)
-    {
-        uint16_t p = basePort + i;
-
-        PacketSinkHelper sink("ns3::UdpSocketFactory",
-            InetSocketAddress(Ipv4Address::GetAny(), p));
-        auto s = sink.Install(nodes.Get(dsts[i]));
+        PacketSinkHelper sink("ns3::UdpSocketFactory",InetSocketAddress(Ipv4Address::GetAny(), port));
+        auto s = sink.Install(nodes.Get(dst));
         s.Start(Seconds(0.0));
         s.Stop(Seconds(simTime));
         sinkApps.Add(s);
 
-        OnOffHelper onoff("ns3::UdpSocketFactory",
-            InetSocketAddress(interfaces.GetAddress(dsts[i]), p));
-        onoff.SetAttribute("DataRate",   StringValue("512Kbps"));
+        double startTime = 1.0 + i * startSpread;
+
+        OnOffHelper onoff("ns3::UdpSocketFactory",InetSocketAddress(interfaces.GetAddress(dst), port));
+        onoff.SetAttribute("DataRate",   StringValue("64Kbps"));
         onoff.SetAttribute("PacketSize", UintegerValue(512));
-        auto c = onoff.Install(nodes.Get(srcs[i]));
-        c.Start(Seconds(1.0 + i * 0.5));
+        onoff.SetAttribute("OnTime",StringValue("ns3::ConstantRandomVariable[Constant=1]"));
+        onoff.SetAttribute("OffTime",StringValue("ns3::ConstantRandomVariable[Constant=0]"));
+        auto c = onoff.Install(nodes.Get(src));
+        c.Start(Seconds(startTime));
         c.Stop(Seconds(simTime));
         clientApps.Add(c);
+
     }
+
 
     Ptr<OnOffApplication> onoffApp = DynamicCast<OnOffApplication>(clientApps.Get(0));
     onoffApp->TraceConnectWithoutContext("Tx",MakeCallback(&FirstTxCallback));
@@ -211,7 +219,7 @@ int main(int argc, char *argv[])
     csv << "TotalRoutingPackets,"    << routingTxPackets               << "\n";
     csv << "TotalDataTxPackets,"     << (uint32_t)totalTxpkt        << "\n";
     csv.close();
-
+    std::cout << "Task finished Successfully";
     Simulator::Destroy();
     return 0;
 }
