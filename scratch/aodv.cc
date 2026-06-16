@@ -44,6 +44,7 @@ void RoutingTxTrace(const Ipv4Header &header,Ptr<const Packet>p,uint32_t interfa
 int main(int argc, char *argv[])
 {
     uint32_t numNodes = 20;
+    uint32_t numFlows = 5;
     double simTime = 100.0;
     std::string mobilityTrace = "kochivanet.ns_movements";
     CommandLine cmd;
@@ -90,26 +91,44 @@ int main(int argc, char *argv[])
 
     }
 
-    uint16_t port = 9999;
+    uint16_t basePort = 9999;
+    ApplicationContainer sinkApps, clientApps;
 
-    PacketSinkHelper sinkHelper(
-        "ns3::UdpSocketFactory",
-        InetSocketAddress(Ipv4Address::GetAny(), port));
+    Ptr<UniformRandomVariable> rng = CreateObject<UniformRandomVariable>();
+    std::vector<uint32_t> srcs, dsts;
 
-    ApplicationContainer sinkApp = sinkHelper.Install(nodes.Get(numNodes - 1));
-    sinkApp.Start(Seconds(0.0));
-    sinkApp.Stop(Seconds(simTime));
+    while (srcs.size() < numFlows)
+    {
+        uint32_t s = rng->GetInteger(0, numNodes - 1);
+        uint32_t d = rng->GetInteger(0, numNodes - 1);
+        if (s == d) continue;
+        bool dup = false;
+        for (auto x : srcs) if (x == s) { dup = true; break; }
+        if (dup) continue;
+        srcs.push_back(s);
+        dsts.push_back(d);
+    }
 
-    OnOffHelper onoff(
-        "ns3::UdpSocketFactory",
-        InetSocketAddress(interfaces.GetAddress(numNodes - 1), port));
+    for (uint32_t i = 0; i < numFlows; i++)
+    {
+        uint16_t p = basePort + i;
 
-    onoff.SetAttribute("DataRate", StringValue("1Mbps"));
-    onoff.SetAttribute("PacketSize", UintegerValue(512));
+        PacketSinkHelper sink("ns3::UdpSocketFactory",
+            InetSocketAddress(Ipv4Address::GetAny(), p));
+        auto s = sink.Install(nodes.Get(dsts[i]));
+        s.Start(Seconds(0.0));
+        s.Stop(Seconds(simTime));
+        sinkApps.Add(s);
 
-    ApplicationContainer client = onoff.Install(nodes.Get(0));
-    client.Start(Seconds(1.0));
-    client.Stop(Seconds(simTime));
+        OnOffHelper onoff("ns3::UdpSocketFactory",
+            InetSocketAddress(interfaces.GetAddress(dsts[i]), p));
+        onoff.SetAttribute("DataRate",   StringValue("512Kbps"));
+        onoff.SetAttribute("PacketSize", UintegerValue(512));
+        auto c = onoff.Install(nodes.Get(srcs[i]));
+        c.Start(Seconds(1.0 + i * 0.5));
+        c.Stop(Seconds(simTime));
+        clientApps.Add(c);
+    }
 
     Ptr<OnOffApplication> onoffApp = DynamicCast<OnOffApplication>(client.Get(0));
     onoffApp->TraceConnectWithoutContext("Tx",MakeCallback(&FirstTxCallback));
