@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- generated on 2026-06-16 06:13:05.446275 by randomTrips.py UNKNOWN
+<configuration>
+    <net-file value="kochisim.xml"/>
+    <route-file value="kochitrip.xml"/>
+    <vtype-output value="maxSpeed=&quot;11.1&quot;"/>
+    <min-distance value="200.0"/>
+    <end value="100.0"/>
+    <period value="5.0"/>
+</configuration>
+-->
+
+<routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd">
+    <trip id="0" depart="0.00" from="140353609#2" to="-1288868634#1"/>
+    <trip id="1" depart="5.00" from="-435463825" to="-435425704#0"/>
+    <trip id="2" depart="10.00" from="435425697#1" to="389525754#0"/>
+    <trip id="3" depart="15.00" from="-53015036#3" to="-1300650364"/>
+    <trip id="4" depart="20.00" from="-435425679#0" to="1288868634#1"/>
+    <trip id="5" depart="25.00" from="-1288868634#0" to="-435425682#0"/>
+    <trip id="6" depart="30.00" from="140354463" to="130303895#2"/>
+    <trip id="7" depart="35.00" from="-435425679#1" to="140126156#2"/>
+    <trip id="8" depart="40.00" from="435643654" to="435425679#1"/>
+    <trip id="9" depart="45.00" from="-435643679" to="-216707170#4"/>
+    <trip id="10" depart="50.00" from="622554929#0" to="-52705494#20"/>
+    <trip id="11" depart="55.00" from="-140126145#3" to="-140126156#6"/>
+    <trip id="12" depart="60.00" from="52705494#13" to="140353227#0"/>
+    <trip id="13" depart="65.00" from="435643679" to="435425704#1"/>
+    <trip id="14" depart="70.00" from="123621420#1" to="650281768#1"/>
+    <trip id="15" depart="75.00" from="-52705494#13" to="130303897#3"/>
+    <trip id="16" depart="80.00" from="435773850" to="140353609#2"/>
+    <trip id="17" depart="85.00" from="52705494#24" to="140126145#7"/>
+    <trip id="18" depart="90.00" from="389525754#4" to="-130303895#4"/>
+    <trip id="19" depart="95.00" from="-435425686" to="-435643679"/>
+</routes>
