@@ -36,7 +36,7 @@ void FirstRxCallback(Ptr<const Packet> p,const Address &addr)
 
 uint32_t routingTxPackets = 0;
 
-void RoutingTxTrace(Ptr<const Packet> p,Ptr<Ipv4> ipv4,uint32_t interface)
+void RoutingTxTrace(const Ipv4Header &header,Ptr<const Packet>p,uint32_t interface)
 {
     routingTxPackets++;
 }
