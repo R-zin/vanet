@@ -17,16 +17,35 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("VanetAodvCsv");
 
+double g_firstTxTime = -1.0;
+double g_firstRxTime = -1.0;
 void FirstTxCallback(Ptr<const Packet> p)
 {
-    
+    if (g_firstTxTime <0.0)
+    {
+        g_firstTxTime = Simulator::Now().GetSeconds();
+    }
+}
+void FirstRxCallback(Ptr<const Packet> p,const Address &addr)
+{
+    if (g_firstRxTime <0.0)
+    {
+        g_firstRxTime = Simulator::Now().GetSeconds();
+    }
+}
+
+uint32_t routingTxPackets = 0;
+
+void RoutingTxTrace(Ptr<const Packet> p,Ptr<Ipv4> ipv4,uint32_t interface)
+{
+    routingTxPackets++;
 }
 
 int main(int argc, char *argv[])
 {
     uint32_t numNodes = 20;
-    double simTime = 300.0;
-    std::string mobilityTrace = "sumo.tcl";
+    double simTime = 100.0;
+    std::string mobilityTrace = "kochivanet.ns_movements";
     CommandLine cmd;
     cmd.AddValue("numNodes", "Number of nodes", numNodes);
     cmd.AddValue("simTime", "Simulation time", simTime);
@@ -43,7 +62,7 @@ int main(int argc, char *argv[])
     ns2.Install();
 
     WifiHelper wifi;
-    wifi.SetStandard(WIFI_STANDARD_80211g);
+    wifi.SetStandard(WIFI_STANDARD_80211p);
 
     YansWifiChannelHelper channel;
     channel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
@@ -57,6 +76,7 @@ int main(int argc, char *argv[])
     NetDeviceContainer devices = wifi.Install(phy, mac, nodes);
 
     AodvHelper aodv;
+    aodv.Set("EnableHello",BooleanValue(false));
     InternetStackHelper internet;
     internet.SetRoutingHelper(aodv);
     internet.Install(nodes);
@@ -64,6 +84,11 @@ int main(int argc, char *argv[])
     Ipv4AddressHelper address;
     address.SetBase("10.1.0.0", "255.255.255.0");
     Ipv4InterfaceContainer interfaces = address.Assign(devices);
+    for (uint32_t i = 0; i < nodes.GetN(); i++)
+    {
+        nodes.Get(i)->GetObject<Ipv4>()->TraceConnectWithoutContext("SendOutgoing",MakeCallback(&RoutingTxTrace));
+
+    }
 
     uint16_t port = 9999;
 
@@ -85,6 +110,12 @@ int main(int argc, char *argv[])
     ApplicationContainer client = onoff.Install(nodes.Get(0));
     client.Start(Seconds(1.0));
     client.Stop(Seconds(simTime));
+
+    Ptr<OnOffApplication> onoffApp = DynamicCast<OnOffApplication>(client.Get(0));
+    onoffApp->TraceConnectWithoutContext("Tx",MakeCallback(&FirstTxCallback));
+
+    Ptr<PacketSink> Sink = DynamicCast<PacketSink>(sinkApp.Get(0));
+    Sink->TraceConnectWithoutContext("Rx",MakeCallback(&FirstRxCallback));
 
     FlowMonitorHelper flowHelper;
     Ptr<FlowMonitor> monitor = flowHelper.InstallAll();
@@ -124,27 +155,42 @@ int main(int argc, char *argv[])
                   (double)flow.second.txPackets * 100.0;
         }
 
-        double avgDelay = 0.0;
-        if (flow.second.rxPackets > 0)
-        {
-            avgDelay = flow.second.delaySum.GetSeconds() /
-                       flow.second.rxPackets;
-        }
+        double avgDelayMs = (flow.second.rxPackets > 0)
+            ? flow.second.delaySum.GetSeconds() / flow.second.rxPackets * 1000.0
+            : 0.0;
+        double jitterMs = (flow.second.rxPackets > 1)
+            ? flow.second.jitterSum.GetSeconds()
+              / (flow.second.rxPackets - 1) * 1000.0
+            : 0.0;
         double duration = flow.second.timeLastRxPacket.GetSeconds() - flow.second.timeFirstTxPacket.GetSeconds();
         double throughput = (duration>0)?(flow.second.rxBytes*8.0)/duration/1000000:0.0;
-        csv << flow.first                   << ","
-       << tuple.sourceAddress              << ","
-       << tuple.sourcePort                 << ","
-       << tuple.destinationAddress         << ","
-       << tuple.destinationPort            << ","
-       << flow.second.txPackets        << ","
-       << flow.second.rxPackets        << ","
-       << flow.second.lostPackets      << ","
-       << std::fixed << std::setprecision(4)
-       << pdr                          << ","
-       << throughput                   << "\n";
+        csv << flow.first                  << ","
+            << tuple.sourceAddress         << ","
+            << tuple.sourcePort            << ","
+            << tuple.destinationAddress    << ","
+            << tuple.destinationPort       << ","
+            << flow.second.txPackets       << ","
+            << flow.second.rxPackets       << ","
+            << flow.second.lostPackets     << ","
+            << std::fixed << std::setprecision(4)
+            << pdr                         << ","
+            << avgDelayMs                  << ","
+            << jitterMs                    << ","
+            << throughput                  << "\n";
     }
 
+    double ctrlPkts  = (double)routingTxPackets - totalTxpkt;
+    double overhead  = (routingTxPackets > 0)
+        ? ctrlPkts / (double)routingTxPackets * 100.0
+        : 0.0;
+    double rdt = (g_firstTxTime >= 0.0 && g_firstRxTime >= 0.0)
+        ? g_firstRxTime - g_firstTxTime
+        : -1.0;
+    csv << "\n# Summary\n";
+    csv << "RoutingOverhead(%),"     << std::setprecision(2) << overhead << "\n";
+    csv << "RouteDiscoveryTime(s),"  << std::setprecision(4) << rdt      << "\n";
+    csv << "TotalRoutingPackets,"    << routingTxPackets               << "\n";
+    csv << "TotalDataTxPackets,"     << (uint32_t)totalTxpkt        << "\n";
     csv.close();
 
     Simulator::Destroy();
