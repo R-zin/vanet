@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
         s.Stop(Seconds(simTime));
         sinkApps.Add(s);
 
-        double startTime = 1.0 + i * startSpread;
+        double startTime = 1.0 + i * startStep;
 
         OnOffHelper onoff("ns3::UdpSocketFactory",InetSocketAddress(interfaces.GetAddress(dst), port));
         onoff.SetAttribute("DataRate",   StringValue("64Kbps"));
