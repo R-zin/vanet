@@ -130,10 +130,10 @@ int main(int argc, char *argv[])
         clientApps.Add(c);
     }
 
-    Ptr<OnOffApplication> onoffApp = DynamicCast<OnOffApplication>(client.Get(0));
+    Ptr<OnOffApplication> onoffApp = DynamicCast<OnOffApplication>(clientApps.Get(0));
     onoffApp->TraceConnectWithoutContext("Tx",MakeCallback(&FirstTxCallback));
 
-    Ptr<PacketSink> Sink = DynamicCast<PacketSink>(sinkApp.Get(0));
+    Ptr<PacketSink> Sink = DynamicCast<PacketSink>(sinkApps.Get(0));
     Sink->TraceConnectWithoutContext("Rx",MakeCallback(&FirstRxCallback));
 
     FlowMonitorHelper flowHelper;
