@@ -153,6 +153,7 @@ if(NOT ${XCODE})
     add_library(
       ${lib-ns3-monolib} SHARED ${PROJECT_SOURCE_DIR}/build-support/empty.cc
                                 "${lib-ns3-static-objs}"
+            gpsr/model/gpsr-routing-protocol.h
     )
     set_target_properties(
       ${lib-ns3-monolib}
